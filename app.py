@@ -24,6 +24,9 @@ gridOptions = gb.build()
 
 grid_response = st_aggrid.AgGrid(df_pockets_,
     gridOptions=gridOptions,
+    #https://discuss.streamlit.io/t/is-there-a-way-to-autosize-all-columns-by-default-on-rendering-with-streamlit-aggrid/31841/2
+    #fit_columns_on_grid_load=True,
+    columns_auto_size_mode=st_aggrid.ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW,
     height=200,
     width='100%',
     enable_enterprise_modules=False,
