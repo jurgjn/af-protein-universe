@@ -1,11 +1,16 @@
 
-import ast, random, urllib.request
+import ast, random, os, urllib.request
 import matplotlib.pyplot as plt, seaborn as sns, pandas as pd, streamlit as st, st_aggrid, py3Dmol, stmol
+
 st.set_page_config(layout="wide")
 
 @st.cache_resource #https://docs.streamlit.io/library/advanced-features/caching
 def read_pockets_():
-    return pd.read_csv('https://gist.githubusercontent.com/jurgjn/9db4b11be6aca6553361c1e461fbeae6/raw/55d5206266cc79bbe24fac90569a4e7d17466888/pockets_score60_pLDDT90.tsv', sep='\t')
+    return pd.read_csv('pockets_score60_pLDDT90.tsv', sep='\t')
+
+@st.cache_resource
+def read_deepfri_():
+    return pd.read_csv('pockets_score60_pLDDT90_DeepFRI_predictions.tsv', sep='\t')
 
 @st.cache_resource
 def read_af2_v3_(af2_id):
@@ -14,6 +19,7 @@ def read_af2_v3_(af2_id):
         return url.read().decode('utf-8')
 
 st.write('# Enzyme activity predictions for dark clusters')
+st.write('Click on row to view structure + DeepFRI summary')
 df_pockets_ = read_pockets_().drop(['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax', 'cl_file', 'cl_isfile'], axis=1)
 #st.dataframe(df_pockets_, height=200, use_container_width=True)
 
@@ -46,19 +52,30 @@ pocket_resid_ = ast.literal_eval(resid_)
 # https://alphafold.ebi.ac.uk/files/AF-A0A1V6PM83-F1-model_v3.pdb
 
 st.write(f'## {af2_id_}')
-pdb_ = read_af2_v3_(af2_id_)
-colors_pocket = {i: '#0072b2' for i in pocket_resid_}
+st.markdown(f'[{af2_id_} in UniProt](https://www.uniprot.org/uniprotkb/{af2_id_}/entry)')
+st.markdown(f'[{af2_id_} in AlphaFill](https://alphafill.eu/model?id={af2_id_})')
 
-xyzview = py3Dmol.view(data=pdb_, style={'stick':{}})
-xyzview.setStyle({'cartoon': {
-    #'color':'spectrum'
-    'colorscheme': {
-        'prop': 'resi',
-        'map': colors_pocket,
-}}})
-xyzview.setBackgroundColor('#D3D3D3')
-stmol.showmol(xyzview, height = 800, width=800)
+col1, col2 = st.columns(2)
+with col1:
+    st.write('### Structure')
+    st.write('Blue = pocket residues')
+    pdb_ = read_af2_v3_(af2_id_)
+    colors_pocket = {i: '#0072b2' for i in pocket_resid_}
 
-fig, ax = plt.subplots()
-sns.heatmap([[1,2,3], [2,3,2]], ax=ax)
-st.write(fig)
+    xyzview = py3Dmol.view(data=pdb_, style={'stick':{}})
+    xyzview.setStyle({'cartoon': {
+        #'color':'spectrum'
+        'colorscheme': {
+            'prop': 'resi',
+            'map': colors_pocket,
+    }}})
+    xyzview.setBackgroundColor('#D3D3D3')
+    stmol.showmol(xyzview, height = 800, width=800)
+
+with col2:
+    st.write('### DeepFRI GO/EC terms')
+    st.dataframe(read_deepfri_().query('Protein == @af2_id_').sort_values('Score', ascending=False).reset_index(drop=True), height=600, use_container_width=True)
+
+    #fig, ax = plt.subplots()
+    #sns.heatmap([[1,2,3], [2,3,2]], ax=ax)
+    #st.write(fig)
