@@ -1,14 +1,7 @@
 
-import urllib.request
-
-import pandas as pd
-
-import streamlit as st
+import ast, random, urllib.request
+import pandas as pd, streamlit as st, st_aggrid, py3Dmol, stmol
 st.set_page_config(layout="wide")
-
-import st_aggrid
-
-import py3Dmol, stmol
 
 @st.cache_resource #https://docs.streamlit.io/library/advanced-features/caching
 def read_pockets_():
@@ -19,7 +12,6 @@ def read_af2_v3_(af2_id):
     url_ = f'https://alphafold.ebi.ac.uk/files/AF-{af2_id}-F1-model_v3.pdb'
     with urllib.request.urlopen(url_) as url:
         return url.read().decode('utf-8')
-
 
 st.write('# Enzyme activity predictions for dark clusters')
 df_pockets_ = read_pockets_().drop(['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax', 'cl_file', 'cl_isfile'], axis=1)
@@ -44,8 +36,14 @@ else:
 
 st.write(f'## {af2_id_}')
 pdb_ = read_af2_v3_(af2_id_)
+colors_pocket = {i: '#0072b2' for i in ast.literal_eval(grid_response['selected_rows'][0]['resid'])}
 
-xyzview = py3Dmol.view(data=pdb_)
-xyzview.setStyle({'cartoon':{'color':'spectrum'}})
+xyzview = py3Dmol.view(data=pdb_, style={'stick':{}})
+xyzview.setStyle({'cartoon': {
+    #'color':'spectrum'
+    'colorscheme': {
+        'prop': 'resi',
+        'map': colors_pocket,
+}}})
 xyzview.setBackgroundColor('#D3D3D3')
 stmol.showmol(xyzview, height = 800, width=800)
