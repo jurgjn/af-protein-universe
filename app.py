@@ -18,9 +18,19 @@ def read_af2_v3_(af2_id):
     with urllib.request.urlopen(url_) as url:
         return url.read().decode('utf-8')
 
+#@st.cache_resource
+def read_deepfri_summary_():
+    df_ = read_deepfri_().sort_values('Score', ascending=False).groupby('Protein').head(1).rename({
+        'Protein': 'struct_id',
+        'Score': 'DeepFri_max_score',
+        'GO_term/EC_number name': 'DeepFri_max_GO/EC_name',
+    }, axis=1)
+    return df_[['struct_id', 'DeepFri_max_score', 'DeepFri_max_GO/EC_name']]
+
 st.write('# Enzyme activity predictions for dark clusters')
 st.write('Click on row to view structure + DeepFRI summary')
-df_pockets_ = read_pockets_().drop(['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax', 'cl_file', 'cl_isfile'], axis=1)
+df_pockets_ = read_pockets_().drop(['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax', 'cl_file', 'cl_isfile'], axis=1)\
+                             .merge(read_deepfri_summary_(), left_on='struct_id', right_on='struct_id', how='left')
 #st.dataframe(df_pockets_, height=200, use_container_width=True)
 
 gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_pockets_)
@@ -54,6 +64,7 @@ pocket_resid_ = ast.literal_eval(resid_)
 st.write(f'## {af2_id_}')
 st.markdown(f'[{af2_id_} in UniProt](https://www.uniprot.org/uniprotkb/{af2_id_}/entry)')
 st.markdown(f'[{af2_id_} in AlphaFill](https://alphafill.eu/model?id={af2_id_})')
+st.markdown(f'[{af2_id_} in Ensembl Bacteria](https://bacteria.ensembl.org/Multi/Search/Results?species=all;idx=;q={af2_id_};site=ensemblunit)')
 
 col1, col2 = st.columns(2)
 with col1:
