@@ -1,6 +1,6 @@
 
 import ast, random, os, urllib.request
-import matplotlib.pyplot as plt, seaborn as sns, pandas as pd, streamlit as st, st_aggrid, py3Dmol, stmol
+import matplotlib, matplotlib.colors, matplotlib.pyplot as plt, seaborn as sns, pandas as pd, streamlit as st, st_aggrid, py3Dmol, stmol
 
 st.set_page_config(layout='wide')
 
@@ -30,7 +30,7 @@ def read_deepfri_summary_():
 st.write('# Enzyme activity predictions for dark clusters')
 st.write('Click on row to view structure + DeepFRI summary')
 df_pockets_ = read_pockets_().drop(['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'], axis=1)\
-                             .merge(read_deepfri_summary_(), left_on='struct_id', right_on='struct_id', how='left')
+                             .merge(read_deepfri_summary_(), left_on='struct_id', right_on='struct_id', how='left').sort_values(['DeepFri_max_score'], ascending=False)
 #st.dataframe(df_pockets_, height=200, use_container_width=True)
 
 gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_pockets_)
@@ -69,18 +69,53 @@ st.markdown(f'{af2_id_} in [UniProt](https://www.uniprot.org/uniprotkb/{af2_id_}
 col1, col2 = st.columns(2)
 with col1:
     st.write('### DeepFRI GO/EC terms')
-    st.dataframe(read_deepfri_().query('Protein == @af2_id_').sort_values('Score', ascending=False).reset_index(drop=True), height=600, use_container_width=True)
 
-    #fig, ax = plt.subplots()
-    #sns.heatmap([[1,2,3], [2,3,2]], ax=ax)
-    #st.write(fig)
+    #st.dataframe(read_deepfri_().query('Protein == @af2_id_').sort_values('Score', ascending=False).reset_index(drop=True), height=600, use_container_width=True)
+    df_ = read_deepfri_().query('Protein == @af2_id_').sort_values('Score', ascending=False).reset_index(drop=True)
+    gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_)
+    gb.configure_selection('single')
+    gb.configure_grid_options(domLayout='normal')
+    gridOptions = gb.build()
+
+    grid_response = st_aggrid.AgGrid(df_,
+        gridOptions=gridOptions,
+        #https://discuss.streamlit.io/t/is-there-a-way-to-autosize-all-columns-by-default-on-rendering-with-streamlit-aggrid/31841/2
+        #fit_columns_on_grid_load=True,
+        columns_auto_size_mode=st_aggrid.ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW,
+        height=400,
+        width='100%',
+        enable_enterprise_modules=False,
+    )
+
+    if len(grid_response['selected_rows']) > 0:
+        go_ec_ = grid_response['selected_rows'][0]['GO_term/EC_number']
+    else:
+        go_ec_ = None
 
 with col2:
     st.write('### Structure')
-    st.write('Blue = pocket residues')
-    pdb_ = read_af2_v3_(af2_id_)
-    colors_pocket = {i: '#0072b2' for i in pocket_resid_}
+    #st.write('Blue = pocket residues')
+    saliency_ = None
+    if not(go_ec_) is None:
+        fp_ = f'data/saliency/{af2_id_}_saliency.tsv'
+        if os.path.getsize(fp_) > 1:
+            df_ = pd.read_csv(fp_, sep='\t')
+            if go_ec_ in df_.columns:
+                st.write(f'Residues colored by saliency for {go_ec_}')#: {df_[go_ec_].head(3)}')
+                saliency_ = df_[go_ec_]
+            else:
+                st.write('No saliency available (CC/BP?)')
 
+    pdb_ = read_af2_v3_(af2_id_)
+
+    #colors_pocket = {i: '#0072b2' for i in pocket_resid_}
+    cmap_ = sns.color_palette("viridis", as_cmap=True)
+    if not(saliency_) is None:
+        st.write(cmap_)
+        colors_pocket = {i + 1: matplotlib.colors.to_hex(cmap_(val_)) for i, val_ in saliency_.items() }
+    else:
+        colors_pocket = {}
+    #st.write(colors_pocket)
     xyzview = py3Dmol.view()
 
     # Add structure
