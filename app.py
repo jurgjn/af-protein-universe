@@ -29,8 +29,8 @@ def read_deepfri_summary_():
 
 st.write('# Enzyme activity predictions for dark clusters')
 st.write('Click on row to view structure + DeepFRI summary')
-df_pockets_ = read_pockets_().drop(['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'], axis=1)\
-                             .merge(read_deepfri_summary_(), left_on='struct_id', right_on='struct_id', how='left').sort_values(['DeepFri_max_score'], ascending=False)
+df_pockets_ = read_pockets_().drop(['pocket_xmin', 'pocket_xmax', 'pocket_ymin', 'pocket_ymax', 'pocket_zmin', 'pocket_zmax'], axis=1)\
+                             .merge(read_deepfri_summary_(), left_on='UniProtKB_ac', right_on='struct_id', how='left').sort_values(['DeepFri_max_score'], ascending=False)
 #st.dataframe(df_pockets_, height=200, use_container_width=True)
 
 gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_pockets_)
@@ -49,12 +49,12 @@ grid_response = st_aggrid.AgGrid(df_pockets_,
 )
 if len(grid_response['selected_rows']) > 0:
     af2_id_ = grid_response['selected_rows'][0]['struct_id']
-    resid_ = grid_response['selected_rows'][0]['resid']
-    cl_file_ = grid_response['selected_rows'][0]['cl_file']
+    resid_ = grid_response['selected_rows'][0]['pocket_resid']
+    cl_file_ = grid_response['selected_rows'][0]['pocket_cl_file']
 else:
     af2_id_ = df_pockets_.head(1).struct_id.squeeze()
-    resid_ = df_pockets_.head(1).resid.squeeze()
-    cl_file_ = df_pockets_.head(1).cl_file.squeeze()
+    resid_ = df_pockets_.head(1).pocket_resid.squeeze()
+    cl_file_ = df_pockets_.head(1).pocket_cl_file.squeeze()
 
 pocket_resid_ = ast.literal_eval(resid_)
 
