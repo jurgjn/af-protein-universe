@@ -33,17 +33,21 @@ tab1, tab2 = st.tabs(['Browse examples', 'Global statistics'])
 
 with tab1:
     st.write('#### All structures/pockets')
-    cols_drop_ = ['pocket_xmin', 'pocket_xmax', 'pocket_ymin', 'pocket_ymax', 'pocket_zmin', 'pocket_zmax']
-    df_pockets_ = read_pockets_().drop(cols_drop_, axis=1)\
-                                 .merge(read_deepfri_summary_(), left_on='UniProtKB_ac', right_on='struct_id', how='left').sort_values(['DeepFri_max_score'], ascending=False)
+    df_pockets_ = read_pockets_().merge(read_deepfri_summary_(), left_on='UniProtKB_ac', right_on='struct_id', how='left').sort_values(['DeepFri_max_score'], ascending=False)
     #st.dataframe(df_pockets_, height=200, use_container_width=True)
+    df_pockets_['struct_resid_in_pockets'] = df_pockets_['pocket_nresid'] / df_pockets_['struct_nresid']
 
-    gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_pockets_)
+    cols_drop_ = ['pocket_xmin', 'pocket_xmax', 'pocket_ymin', 'pocket_ymax', 'pocket_zmin', 'pocket_zmax',
+                    'pocket_cl_file', 'pocket_cl_isfile', 'struct_id',
+                    'pocket_n_points', 'pocket_energy', 'pocket_energy_per_vol', 'pocket_rgyr', 'pocket_buriedness', 'pocket_resid']
+    df_pockets_aggrid_ = df_pockets_.drop(cols_drop_, axis=1)
+
+    gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_pockets_aggrid_)
     gb.configure_selection('single')
     gb.configure_grid_options(domLayout='normal')
     gridOptions = gb.build()
 
-    grid_response = st_aggrid.AgGrid(df_pockets_,
+    grid_response = st_aggrid.AgGrid(df_pockets_aggrid_,
         gridOptions=gridOptions,
         #https://discuss.streamlit.io/t/is-there-a-way-to-autosize-all-columns-by-default-on-rendering-with-streamlit-aggrid/31841/2
         #fit_columns_on_grid_load=True,
@@ -53,14 +57,14 @@ with tab1:
         enable_enterprise_modules=False,
     )
     if len(grid_response['selected_rows']) > 0:
-        af2_id_ = grid_response['selected_rows'][0]['struct_id']
-        resid_ = grid_response['selected_rows'][0]['pocket_resid']
-        cl_file_ = grid_response['selected_rows'][0]['pocket_cl_file']
+        af2_id_ = grid_response['selected_rows'][0]['UniProtKB_ac']
+        pocket_id_ = grid_response['selected_rows'][0]['pocket_id']
     else:
-        af2_id_ = df_pockets_.head(1).struct_id.squeeze()
-        resid_ = df_pockets_.head(1).pocket_resid.squeeze()
-        cl_file_ = df_pockets_.head(1).pocket_cl_file.squeeze()
+        af2_id_ = df_pockets_aggrid_.head(1).UniProtKB_ac.squeeze()
+        pocket_id_ = df_pockets_aggrid_.head(1).pocket_id.squeeze()
 
+    resid_ = df_pockets_.query('UniProtKB_ac == @af2_id_ & pocket_id == @pocket_id_').squeeze().pocket_resid
+    cl_file_ = df_pockets_.query('UniProtKB_ac == @af2_id_ & pocket_id == @pocket_id_').squeeze().pocket_cl_file
     pocket_resid_ = ast.literal_eval(resid_)
 
     #selected_indices = st.selectbox('Select structure:', df_pockets_['struct_id'])
@@ -114,8 +118,8 @@ with tab1:
                 df_.index.name='resseq'
                 #df_.columns = [col_ + '\nsecond_row' for col_ in df_.columns]
 
+            st.dataframe(df_heatmap_)
             df_heatmap_ = pd.concat([df_heatmap_.fillna(0), df_], axis=1)
-            #st.dataframe(df_heatmap_)
 
             fig, ax = plt.subplots(figsize=(4, 4))
             sns.heatmap(df_heatmap_, vmin=0, vmax=1, cmap='viridis')
@@ -123,7 +127,6 @@ with tab1:
             #plt.gca().xaxis.tick_top()
             plt.xticks(rotation=70);
             st.pyplot(fig)
-
 
     with col2:
         st.write(f'#### Structure/visualisation for {af2_id_}')
