@@ -36,6 +36,7 @@ with tab1:
     df_pockets_ = read_pockets_().merge(read_deepfri_summary_(), left_on='UniProtKB_ac', right_on='struct_id', how='left').sort_values(['DeepFri_max_score'], ascending=False)
     #st.dataframe(df_pockets_, height=200, use_container_width=True)
     df_pockets_['struct_resid_in_pockets'] = df_pockets_['pocket_nresid'] / df_pockets_['struct_nresid']
+    df_pockets_.to_csv('data/pockets_score60_pLDDT90_merge_DeepFRI.tsv', sep='\t', header=True, index=False)
 
     cols_drop_ = ['pocket_xmin', 'pocket_xmax', 'pocket_ymin', 'pocket_ymax', 'pocket_zmin', 'pocket_zmax',
                     'pocket_cl_file', 'pocket_cl_isfile', 'struct_id',
@@ -112,14 +113,16 @@ with tab1:
                 df_heatmap_.loc[val_, col_] = 1
 
             fp_ = f'data/saliency/{af2_id_}_saliency.tsv'
+            st.write(os.path.getsize(fp_))
             if os.path.getsize(fp_) > 1:
                 df_ = pd.read_csv(fp_, sep='\t')
                 df_.index = range(1, len(df_) + 1)
                 df_.index.name='resseq'
                 #df_.columns = [col_ + '\nsecond_row' for col_ in df_.columns]
 
-            st.dataframe(df_heatmap_)
             df_heatmap_ = pd.concat([df_heatmap_.fillna(0), df_], axis=1)
+
+            st.dataframe(df_heatmap_)
 
             fig, ax = plt.subplots(figsize=(4, 4))
             sns.heatmap(df_heatmap_, vmin=0, vmax=1, cmap='viridis')
