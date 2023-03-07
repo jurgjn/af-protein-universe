@@ -69,6 +69,7 @@ with tab1:
         enable_enterprise_modules=False,
     )
     if not(len(grid_response['selected_rows']) > 0): time.sleep(5)
+    st.write('sleep5')
     if len(grid_response['selected_rows']) > 0:
         st.write('1')
         af2_id_ = grid_response['selected_rows'][0]['UniProtKB_ac']
