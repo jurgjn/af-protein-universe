@@ -5,6 +5,24 @@ import matplotlib, matplotlib.colors, matplotlib.pyplot as plt, seaborn as sns, 
 st.set_page_config(layout='wide')
 st.cache_resource.clear()
 
+def RowSelectedDataFrame(df_, pre_selected_rows=[0]):
+    gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_)
+    gb.configure_selection(selection_mode='single', pre_selected_rows=pre_selected_rows)
+    gb.configure_grid_options(domLayout='normal')
+    gridOptions = gb.build()
+    gridResponse = st_aggrid.AgGrid(df_,
+        gridOptions=gridOptions,
+        columns_auto_size_mode=st_aggrid.ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW,
+        height=400,
+        width='100%',
+        enable_enterprise_modules=False,
+    )
+    return gridResponse
+
+def RowSelectedDataFrameGet(gr_):
+    if not(len(gr_['selected_rows']) > 0): time.sleep(5) # Prevent annoying row-not-selected errors during loading
+    return gr_['selected_rows'][0]
+
 @st.cache_resource #https://docs.streamlit.io/library/advanced-features/caching
 def read_pockets_():
     return pd.read_csv('pages/Figure_2_Putative_Novel_Enzymes/pockets_score60_pLDDT90.tsv', sep='\t')
@@ -44,40 +62,21 @@ with tab1:
                     'pocket_n_points', 'pocket_energy', 'pocket_energy_per_vol', 'pocket_rgyr', 'pocket_buriedness', 'pocket_resid']
     df_pockets_aggrid_ = df_pockets_.drop(cols_drop_, axis=1).reset_index(drop=True)
 
-    gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_pockets_aggrid_)
-    st.write('55')
+
+    #gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_pockets_aggrid_)
+    st.write('59')
     try:
         UniProtKB_ac_ = st.experimental_get_query_params().get('UniProtKB_ac')[0]
         index_ = 4#df_pockets_aggrid_.query('UniProtKB_ac == @UniProtKB_ac_').index.values[0]
-        gb.configure_selection(selection_mode='single', pre_selected_rows=[int(index_)])
         st.write([int(index_)], 'noexcept!')
-    except Exception as e:
+    except (Exception, TypeError) as e:
         st.write('except?')
         st.write(e)
-        gb.configure_selection('single')
 
-    gb.configure_grid_options(domLayout='normal')
-    gridOptions = gb.build()
-
-    grid_response = st_aggrid.AgGrid(df_pockets_aggrid_,
-        gridOptions=gridOptions,
-        #https://discuss.streamlit.io/t/is-there-a-way-to-autosize-all-columns-by-default-on-rendering-with-streamlit-aggrid/31841/2
-        #fit_columns_on_grid_load=True,
-        columns_auto_size_mode=st_aggrid.ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW,
-        height=200,
-        width='100%',
-        enable_enterprise_modules=False,
-    )
-    if not(len(grid_response['selected_rows']) > 0): time.sleep(5)
-    st.write('sleep5')
-    if len(grid_response['selected_rows']) > 0:
-        st.write('1')
-        af2_id_ = grid_response['selected_rows'][0]['UniProtKB_ac']
-        pocket_id_ = grid_response['selected_rows'][0]['pocket_id']
-    else:
-        st.write('2')
-        af2_id_ = df_pockets_aggrid_.head(1).UniProtKB_ac.squeeze()
-        pocket_id_ = df_pockets_aggrid_.head(1).pocket_id.squeeze()
+    gr_ = RowSelectedDataFrame(df_pockets_aggrid_, pre_selected_rows=[int(index_)])
+    time.sleep(5)
+    af2_id_ = RowSelectedDataFrameGet(gr_)['UniProtKB_ac']
+    pocket_id_ = RowSelectedDataFrameGet(gr_)['pocket_id']
 
     resid_ = df_pockets_.query('UniProtKB_ac == @af2_id_ & pocket_id == @pocket_id_').squeeze().pocket_resid
     cl_file_ = df_pockets_.query('UniProtKB_ac == @af2_id_ & pocket_id == @pocket_id_').squeeze().pocket_cl_file
