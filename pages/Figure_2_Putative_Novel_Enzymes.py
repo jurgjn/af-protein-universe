@@ -3,7 +3,7 @@ import ast, random, os, time, urllib.request
 import matplotlib, matplotlib.colors, matplotlib.pyplot as plt, seaborn as sns, pandas as pd, streamlit as st, st_aggrid, py3Dmol, stmol
 
 st.set_page_config(layout='wide')
-st.cache_resource.clear()
+#st.cache_resource.clear()
 
 def RowSelectedDataFrame(df_, pre_selected_rows=[0]):
     gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_)
@@ -62,19 +62,16 @@ with tab1:
                     'pocket_n_points', 'pocket_energy', 'pocket_energy_per_vol', 'pocket_rgyr', 'pocket_buriedness', 'pocket_resid']
     df_pockets_aggrid_ = df_pockets_.drop(cols_drop_, axis=1).reset_index(drop=True)
 
-
-    #gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_pockets_aggrid_)
-    st.write('59')
     try:
         UniProtKB_ac_ = st.experimental_get_query_params().get('UniProtKB_ac')[0]
-        index_ = 4#df_pockets_aggrid_.query('UniProtKB_ac == @UniProtKB_ac_').index.values[0]
-        st.write([int(index_)], 'noexcept!')
-    except (Exception, TypeError) as e:
-        st.write('except?')
-        st.write(e)
+        index_ = df_pockets_aggrid_.query('UniProtKB_ac == @UniProtKB_ac_').index.values[0]
+        #st.write([int(index_)], 'noexcept!')
+    except Exception:
+        index_ = 0
+    except TypeError:
+        index_ = 0
 
     gr_ = RowSelectedDataFrame(df_pockets_aggrid_, pre_selected_rows=[int(index_)])
-    time.sleep(5)
     af2_id_ = RowSelectedDataFrameGet(gr_)['UniProtKB_ac']
     pocket_id_ = RowSelectedDataFrameGet(gr_)['pocket_id']
 
