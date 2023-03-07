@@ -70,9 +70,11 @@ with tab1:
     )
     if not(len(grid_response['selected_rows']) > 0): time.sleep(5)
     if len(grid_response['selected_rows']) > 0:
+        st.write('1')
         af2_id_ = grid_response['selected_rows'][0]['UniProtKB_ac']
         pocket_id_ = grid_response['selected_rows'][0]['pocket_id']
     else:
+        st.write('2')
         af2_id_ = df_pockets_aggrid_.head(1).UniProtKB_ac.squeeze()
         pocket_id_ = df_pockets_aggrid_.head(1).pocket_id.squeeze()
 
