@@ -7,11 +7,11 @@ st.cache_resource.clear()
 
 @st.cache_resource #https://docs.streamlit.io/library/advanced-features/caching
 def read_pockets_():
-    return pd.read_csv('data/pockets_score60_pLDDT90.tsv', sep='\t')
+    return pd.read_csv('pages/Figure_2_Putative_Novel_Enzymes/pockets_score60_pLDDT90.tsv', sep='\t')
 
 @st.cache_resource
 def read_deepfri_():
-    return pd.read_csv('data/pockets_score60_pLDDT90_DeepFRI_predictions.tsv', sep='\t')
+    return pd.read_csv('pages/Figure_2_Putative_Novel_Enzymes/pockets_score60_pLDDT90_DeepFRI_predictions.tsv', sep='\t')
 
 @st.cache_resource
 def read_af2_v3_(af2_id):
@@ -36,7 +36,7 @@ with tab1:
     df_pockets_ = read_pockets_().merge(read_deepfri_summary_(), left_on='UniProtKB_ac', right_on='struct_id', how='left').sort_values(['DeepFri_max_score'], ascending=False)
     #st.dataframe(df_pockets_, height=200, use_container_width=True)
     df_pockets_['struct_resid_in_pockets'] = df_pockets_['pocket_nresid'] / df_pockets_['struct_nresid']
-    df_pockets_.to_csv('data/pockets_score60_pLDDT90_merge_DeepFRI.tsv', sep='\t', header=True, index=False)
+    #df_pockets_.to_csv('data/pockets_score60_pLDDT90_merge_DeepFRI.tsv', sep='\t', header=True, index=False)
 
     cols_drop_ = ['pocket_xmin', 'pocket_xmax', 'pocket_ymin', 'pocket_ymax', 'pocket_zmin', 'pocket_zmax',
                     'pocket_cl_file', 'pocket_cl_isfile', 'struct_id',
@@ -112,7 +112,7 @@ with tab1:
                 val_ = ast.literal_eval(r['pocket_resid'])
                 df_heatmap_.loc[val_, col_] = 1
 
-            fp_ = f'data/saliency/{af2_id_}_saliency.tsv'
+            fp_ = f'pages/Figure_2_Putative_Novel_Enzymes/saliency/{af2_id_}_saliency.tsv'
             st.write(os.path.getsize(fp_))
             if os.path.getsize(fp_) > 1:
                 df_ = pd.read_csv(fp_, sep='\t')
@@ -136,7 +136,7 @@ with tab1:
         #st.write('Blue = pocket residues')
         saliency_ = None
         if not(go_ec_) is None:
-            fp_ = f'data/saliency/{af2_id_}_saliency.tsv'
+            fp_ = f'pages/Figure_2_Putative_Novel_Enzymes/saliency/{af2_id_}_saliency.tsv'
             if os.path.getsize(fp_) > 1:
                 df_ = pd.read_csv(fp_, sep='\t')
                 if go_ec_ in df_.columns:
@@ -169,7 +169,7 @@ with tab1:
         }})
 
         # Add pocket
-        with open(os.path.join('data/pockets', os.path.basename(cl_file_))) as fh:
+        with open(os.path.join('pages/Figure_2_Putative_Novel_Enzymes/pockets', os.path.basename(cl_file_))) as fh:
             pocket_ = fh.read()
         xyzview.addModel(pocket_, format='pdb')
         xyzview.setStyle({'model': -1}, {})
@@ -195,13 +195,15 @@ with tab2:
 
         col_1_, col_2_ = st.columns(2)
 
-        with col_2_:
-            value_counts_ = read_deepfri_().query('Score > 0.5 & DeepFRI_ont == @ont_')[['GO_term/EC_number', 'GO_term/EC_number name']].value_counts()
-            st.dataframe(value_counts_)
-
+        value_counts_ = read_deepfri_().query('Score > 0.5 & DeepFRI_ont == @ont_')[['GO_term/EC_number', 'GO_term/EC_number name']].value_counts()
         with col_1_:
             fig, ax = plt.subplots(figsize=(4, 4))
             value_counts_.head(10).plot(kind='barh')
+            plt.title(f'Top 10 enriched terms ({ont_})')
             plt.gca().invert_yaxis()
             st.pyplot(fig)
+            #plt.savefig(f'DeepFRI_top10_{ont_}.svg', format='svg', bbox_inches='tight') # SVG version for manuscript: https://github.com/streamlit/streamlit/issues/796
+
+        with col_2_:
+            st.dataframe(value_counts_)
 

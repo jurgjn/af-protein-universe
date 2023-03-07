@@ -1,4 +1,6 @@
 matplotlib
+ProDy==2.2.0
 seaborn
 stmol
 streamlit-aggrid
+streamlit-ext
