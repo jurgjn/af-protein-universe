@@ -48,7 +48,7 @@ with tab1:
     st.write('55')
     try:
         UniProtKB_ac_ = st.experimental_get_query_params().get('UniProtKB_ac')[0]
-        index_ = df_pockets_aggrid_.query('UniProtKB_ac == @UniProtKB_ac_').index.values[0]
+        index_ = 4#df_pockets_aggrid_.query('UniProtKB_ac == @UniProtKB_ac_').index.values[0]
         gb.configure_selection(selection_mode='single', pre_selected_rows=[int(index_)])
         st.write([int(index_)], 'noexcept!')
     except Exception as e:
