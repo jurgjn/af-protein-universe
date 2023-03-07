@@ -45,11 +45,13 @@ with tab1:
     df_pockets_aggrid_ = df_pockets_.drop(cols_drop_, axis=1).reset_index(drop=True)
 
     gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_pockets_aggrid_)
+    st.write('1818')
     try:
         UniProtKB_ac_ = st.experimental_get_query_params().get('UniProtKB_ac')[0]
         index_ = df_pockets_aggrid_.query('UniProtKB_ac == @UniProtKB_ac_').index.values[0]
         st.write(index_)
         gb.configure_selection(selection_mode='single', pre_selected_rows=[int(index_)])
+        time.sleep(3)
     except:
         st.write('except?')
         gb.configure_selection('single')
