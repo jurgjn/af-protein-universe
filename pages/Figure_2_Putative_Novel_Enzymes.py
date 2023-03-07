@@ -29,6 +29,7 @@ def read_deepfri_summary_():
     return df_[['struct_id', 'DeepFri_max_score', 'DeepFri_max_GO/EC_name']]
 
 st.write('# Enzyme activity predictions for dark clusters')
+
 tab1, tab2 = st.tabs(['Browse examples', 'Global statistics'])
 
 with tab1:
@@ -41,10 +42,16 @@ with tab1:
     cols_drop_ = ['pocket_xmin', 'pocket_xmax', 'pocket_ymin', 'pocket_ymax', 'pocket_zmin', 'pocket_zmax',
                     'pocket_cl_file', 'pocket_cl_isfile', 'struct_id',
                     'pocket_n_points', 'pocket_energy', 'pocket_energy_per_vol', 'pocket_rgyr', 'pocket_buriedness', 'pocket_resid']
-    df_pockets_aggrid_ = df_pockets_.drop(cols_drop_, axis=1)
+    df_pockets_aggrid_ = df_pockets_.drop(cols_drop_, axis=1).reset_index(drop=True)
 
     gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_pockets_aggrid_)
-    gb.configure_selection('single')
+    try:
+        UniProtKB_ac_ = st.experimental_get_query_params().get('UniProtKB_ac')[0]
+        index_ = df_pockets_aggrid_.query('UniProtKB_ac == @UniProtKB_ac_').index.values[0]
+        gb.configure_selection(selection_mode='single', pre_selected_rows=[int(index_)])
+    except:
+        gb.configure_selection('single')
+
     gb.configure_grid_options(domLayout='normal')
     gridOptions = gb.build()
 
