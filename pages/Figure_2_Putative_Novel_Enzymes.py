@@ -1,5 +1,5 @@
 
-import ast, random, os, urllib.request
+import ast, random, os, time, urllib.request
 import matplotlib, matplotlib.colors, matplotlib.pyplot as plt, seaborn as sns, pandas as pd, streamlit as st, st_aggrid, py3Dmol, stmol
 
 st.set_page_config(layout='wide')
