@@ -52,8 +52,9 @@ with tab1:
         st.write(index_)
         gb.configure_selection(selection_mode='single', pre_selected_rows=[int(index_)])
         time.sleep(3)
-    except:
+    except e:
         st.write('except?')
+        st.write(e)
         gb.configure_selection('single')
 
     gb.configure_grid_options(domLayout='normal')
