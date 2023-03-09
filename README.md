@@ -1,6 +1,5 @@
 # Clustering predicted structures at the scale of the known protein universe
 ## Interactive supplementary
-### Access/Installation
 A publicly accessible instance is currently accessible [at this address](https://af-protein-universe.streamlit.app) on the Streamlit Community Cloud.
 
 Alternatively, you install the web app locally by forking the [repository](https://github.com/jurgjn/af-protein-universe) and [setting up a conda environment](https://conda.io/projects/conda/en/latest/user-guide/getting-started.html) as follows:
