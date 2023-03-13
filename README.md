@@ -7,9 +7,7 @@ Alternatively, you install the web app locally by forking the [repository](https
 $ git clone git@github.com:jurgjn/af-protein-universe.git
 $ cd af-protein-universe/
 $ conda create -p streamlit-env python numpy matplotlib seaborn
-$ conda activate ./streamlit-env
-$ pip install -r requirements.txt
-$ conda deactivate
+$ conda run -p ./streamlit-env pip install -r requirements.txt
 ```
 
 After that, run the web app locally with:

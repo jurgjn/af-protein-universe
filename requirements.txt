@@ -2,5 +2,6 @@ matplotlib
 ProDy==2.2.0
 seaborn
 stmol
-streamlit-aggrid
+streamlit
+streamlit-aggrid==0.3.3 # pre_selected_rows has no effect in later versions
 streamlit-ext

@@ -1,9 +1,20 @@
 
-import ast, random, os, time, urllib.request
-import matplotlib, matplotlib.colors, matplotlib.pyplot as plt, seaborn as sns, pandas as pd, streamlit as st, st_aggrid, py3Dmol, stmol
+import ast, random, os, tempfile, time, sqlite3, urllib.request
+import matplotlib, matplotlib.colors, matplotlib.pyplot as plt, seaborn as sns, pandas as pd, streamlit as st, streamlit_ext as ste, st_aggrid, prody, py3Dmol, stmol, Bio
 
-st.set_page_config(layout='wide')
+st.set_page_config(
+    page_title='Putative Novel Enzymes',
+    page_icon='🔬',
+    layout='wide',
+)
 #st.cache_resource.clear()
+
+#---
+def strip_af_cif(s):
+    return s.removesuffix('-F1-model_v3.cif').removeprefix('AF-')
+
+def uf(x):
+    return '{:,}'.format(x)
 
 def RowSelectedDataFrame(df_, pre_selected_rows=[0]):
     gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_)
@@ -12,7 +23,9 @@ def RowSelectedDataFrame(df_, pre_selected_rows=[0]):
     gridOptions = gb.build()
     gridResponse = st_aggrid.AgGrid(df_,
         gridOptions=gridOptions,
-        columns_auto_size_mode=st_aggrid.ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW,
+        update_mode=st_aggrid.GridUpdateMode.SELECTION_CHANGED,
+        fit_columns_on_grid_load=True,
+        #columns_auto_size_mode=st_aggrid.ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW,
         height=400,
         width='100%',
         enable_enterprise_modules=False,
@@ -23,6 +36,13 @@ def RowSelectedDataFrameGet(gr_):
     if not(len(gr_['selected_rows']) > 0): time.sleep(5) # Prevent annoying row-not-selected errors during loading
     return gr_['selected_rows'][0]
 
+@st.cache_resource
+def read_af2_v3_(af2_id):
+    url_ = f'https://alphafold.ebi.ac.uk/files/AF-{af2_id}-F1-model_v3.pdb'
+    with urllib.request.urlopen(url_) as url:
+        return url.read().decode('utf-8')
+#---
+
 @st.cache_resource #https://docs.streamlit.io/library/advanced-features/caching
 def read_pockets_():
     return pd.read_csv('pages/Figure_2_Putative_Novel_Enzymes/pockets_score60_pLDDT90.tsv', sep='\t')
@@ -30,12 +50,6 @@ def read_pockets_():
 @st.cache_resource
 def read_deepfri_():
     return pd.read_csv('pages/Figure_2_Putative_Novel_Enzymes/pockets_score60_pLDDT90_DeepFRI_predictions.tsv', sep='\t')
-
-@st.cache_resource
-def read_af2_v3_(af2_id):
-    url_ = f'https://alphafold.ebi.ac.uk/files/AF-{af2_id}-F1-model_v3.pdb'
-    with urllib.request.urlopen(url_) as url:
-        return url.read().decode('utf-8')
 
 #@st.cache_resource
 def read_deepfri_summary_():
@@ -64,6 +78,8 @@ with tab1:
 
     try:
         UniProtKB_ac_ = st.experimental_get_query_params().get('UniProtKB_ac')[0]
+        st.write(UniProtKB_ac_)
+        st.experimental_set_query_params(UniProtKB_ac='')
         index_ = df_pockets_aggrid_.query('UniProtKB_ac == @UniProtKB_ac_').index.values[0]
         #st.write([int(index_)], 'noexcept!')
     except Exception:
@@ -124,7 +140,7 @@ with tab1:
                 df_heatmap_.loc[val_, col_] = 1
 
             fp_ = f'pages/Figure_2_Putative_Novel_Enzymes/saliency/{af2_id_}_saliency.tsv'
-            st.write(os.path.getsize(fp_))
+            #st.write(os.path.getsize(fp_))
             if os.path.getsize(fp_) > 1:
                 df_ = pd.read_csv(fp_, sep='\t')
                 df_.index = range(1, len(df_) + 1)
@@ -132,8 +148,7 @@ with tab1:
                 #df_.columns = [col_ + '\nsecond_row' for col_ in df_.columns]
 
             df_heatmap_ = pd.concat([df_heatmap_.fillna(0), df_], axis=1)
-
-            st.dataframe(df_heatmap_)
+            #st.dataframe(df_heatmap_)
 
             fig, ax = plt.subplots(figsize=(4, 4))
             sns.heatmap(df_heatmap_, vmin=0, vmax=1, cmap='viridis')
@@ -161,7 +176,6 @@ with tab1:
         #colors_pocket = {i: '#0072b2' for i in pocket_resid_}
         cmap_ = sns.color_palette("viridis", as_cmap=True)
         if not(saliency_) is None:
-            st.write(cmap_)
             colors_pocket = {i + 1: matplotlib.colors.to_hex(cmap_(val_)) for i, val_ in saliency_.items() }
         else:
             colors_pocket = {}
@@ -189,7 +203,8 @@ with tab1:
         # Back matter
         xyzview.setBackgroundColor('#eeeeee')
         xyzview.zoomTo()
-        stmol.showmol(xyzview, height = 800, width=800)
+        stmol.showmol(xyzview, height=600, width=600)
+        st.write(cmap_)
 
 with tab2:
     def uf(x):

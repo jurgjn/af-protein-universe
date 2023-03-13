@@ -2,23 +2,12 @@
 import ast, random, os, tempfile, time, sqlite3, urllib.request
 import matplotlib, matplotlib.colors, matplotlib.pyplot as plt, seaborn as sns, pandas as pd, streamlit as st, streamlit_ext as ste, st_aggrid, prody, py3Dmol, stmol, Bio
 
-def RowSelectedDataFrame(df_, pre_selected_rows=[0]):
-    gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_)
-    gb.configure_selection(selection_mode='single', pre_selected_rows=pre_selected_rows)
-    gb.configure_grid_options(domLayout='normal')
-    gridOptions = gb.build()
-    gridResponse = st_aggrid.AgGrid(df_,
-        gridOptions=gridOptions,
-        columns_auto_size_mode=st_aggrid.ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW,
-        height=400,
-        width='100%',
-        enable_enterprise_modules=False,
-    )
-    return gridResponse
-
-def RowSelectedDataFrameGet(gr_):
-    if not(len(gr_['selected_rows']) > 0): time.sleep(5) # Prevent annoying row-not-selected errors during loading
-    return gr_['selected_rows'][0]
+st.set_page_config(
+    page_title='Human-Centric Clusters',
+    page_icon='🔬',
+    layout='wide',
+)
+st.cache_resource.clear()
 
 def strip_af_cif(s):
     return s.removesuffix('-F1-model_v3.cif').removeprefix('AF-')
@@ -26,19 +15,39 @@ def strip_af_cif(s):
 def uf(x):
     return '{:,}'.format(x)
 
+def RowSelectedDataFrame(df_, selected_row_index, height=400):
+    gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_)
+    gb.configure_selection(selection_mode='single', use_checkbox=True, pre_selected_rows=[ selected_row_index ])
+    gb.configure_grid_options(domLayout='normal')
+    #gb.configure_pagination()
+    #https://github.com/PablocFonseca/streamlit-aggrid/issues/57
+    gb.configure_grid_options(onFirstDataRendered=st_aggrid.JsCode("""
+    function(e) { 
+        e.api.ensureIndexVisible(%d, 'middle');
+    }
+    """ % (selected_row_index,)).js_code)
+    gridOptions = gb.build()
+    gridResponse = st_aggrid.AgGrid(df_,
+        gridOptions=gridOptions,
+        #update_mode=st_aggrid.GridUpdateMode.SELECTION_CHANGED,
+        fit_columns_on_grid_load=True,
+        height=height,
+        width='100%',
+        enable_enterprise_modules=False,
+        allow_unsafe_jscode=True,
+    )
+    return gridResponse
+
+def RowSelectedDataFrameGet(gr_):
+    if not(len(gr_['selected_rows']) > 0): time.sleep(5) # Prevent annoying row-not-selected errors during loading
+    return gr_['selected_rows'][0]
+
 @st.cache_resource
 def read_af2_v3_(af2_id):
     url_ = f'https://alphafold.ebi.ac.uk/files/AF-{af2_id}-F1-model_v3.pdb'
     with urllib.request.urlopen(url_) as url:
         return url.read().decode('utf-8')
-
-#st.cache_resource.clear()
-st.set_page_config(layout='wide')
-
-#entryID = st.selectbox(label='UniProtKB_ac', options=read_clusters_()['repID'])
-
-st.write('# Browse clusters')
-entryID = ste.text_input(label='UniProtKB_ac:', value='A0A2R8Y619', key='UniProtKB_ac')
+#---
 
 fig3_sqlite = 'pages/Figure_3_Human-Centric_Clusters.sqlite'
 
@@ -57,73 +66,52 @@ def query_clusters_repID(repID):
         df_ = pd.read_sql(f'select * from clusters where repID == "{repID}"', con)
     return df_
 
+def query_clusters():
+    with sqlite3.connect(fig3_sqlite) as con:
+        df_ = pd.read_sql(f'select * from clusters', con)
+    return df_
+
+st.write('# Human-Centric Clusters')
+
+entryID = ste.text_input(label='Search cluster membership for (enter Uniprot ID):', value='A0A2R8Y619', key='entryID')
 q_ = query_entryID(entryID)
 if len(q_) == 1:
-    repID = q_['repId'].squeeze()
+    repID = q_['repID'].squeeze()
+    repID_index_ = int(query_clusters().query('repID == @repID').index.values[0])
     st.write(f'{entryID} belongs to cluster {repID}')
 else:
-    st.write(f'# {entryID} not found..')
+    st.write(f'{entryID} not found')
+    repID_index_ = 0
 
-col1, col2, col3 = st.columns(3)
+gr_clusters_ = RowSelectedDataFrame(query_clusters(), selected_row_index=repID_index_, height=200)
+repID = RowSelectedDataFrameGet(gr_clusters_)['repID']
+if entryID in set(query_repID(repID)['entryID']):
+    st.experimental_set_query_params(repID=repID, entryID=entryID)
+else:
+    st.experimental_set_query_params(repID=repID, entryID=repID)
+    entryID=repID
+
+col1, col2 = st.columns(spec=[1,2])
 
 with col1:
-    st.write(f'### Cluster {repID}')
-    st.write('Cluster metadata:')
-    st.dataframe(query_clusters_repID(repID).set_index(['repID']), use_container_width=True)
-    df_cluster_ = query_repID(repID)
-    entryID_index_ = df_cluster_.query('entryID == @entryID').index.values[0]
-    #st.write(entryID_index_, len(df_cluster_))
-    st.write('Cluster members:')
-    gr_cluster_ = RowSelectedDataFrame(df_cluster_, pre_selected_rows=[int(entryID_index_)])
+    st.write(f'### Cluster {repID} members:')
+    df_cluster_members_ = query_repID(repID)[['entryID', 'taxID']]
+    entryID_index_ = df_cluster_members_.query('entryID == @entryID').index.values[0]
+    gr_cluster_members_ = RowSelectedDataFrame(df_cluster_members_, selected_row_index=int(entryID_index_))
+    entryID = RowSelectedDataFrameGet(gr_cluster_members_)['entryID']
+    st.experimental_set_query_params(repID=repID, entryID=entryID)
 
 with col2:
-    selEntryID = RowSelectedDataFrameGet(gr_cluster_)['entryID']
-    st.write(f'### Selected member ({selEntryID})')
-    pdb_mobile_ = read_af2_v3_(selEntryID)
-    pdb_target_ = read_af2_v3_(repID)
+    st.write(f'### Structure ({entryID})')
 
-    tmp_mobile_ = tempfile.NamedTemporaryFile(suffix='.pdb')
-    tmp_target_ = tempfile.NamedTemporaryFile(suffix='.pdb')
-
-    with open(tmp_mobile_.name, 'w') as fh:
-        fh.write(pdb_mobile_)
-
-    with open(tmp_target_.name, 'w') as fh:
-        fh.write(pdb_target_)
-
-    mol_mobile_ = prody.parsePDB(tmp_mobile_.name)
-    mol_target_ = prody.parsePDB(tmp_target_.name)
-    superimposed_mobile_, match_mobile_, match_target_, seqid, overlap = prody.matchAlign(mol_mobile_, mol_target_, seqid=20, overlap=20)
-
-    tmp_super_ = tempfile.NamedTemporaryFile(suffix='.pdb')
-    prody.writePDB(tmp_super_.name, superimposed_mobile_)
-
-    with open(tmp_super_.name) as fh:
-        pdb_superimposed_ = fh.read()
-
-    # Add structure
-    xyzview2 = py3Dmol.view()
-
-    xyzview2.addModel(pdb_superimposed_, format='pdb')
-    xyzview2.setStyle({'model': 0}, {'cartoon': {'color': 'blue'}})
-
-    #xyzview2.addModel(pdb_mobile_, format='pdb')
-    #xyzview2.setStyle({'model': 1}, {'cartoon': {'color': 'red'}})
-
-    # Back matter
-    xyzview2.setBackgroundColor('#eeeeee')
-    xyzview2.zoomTo()
-    stmol.showmol(xyzview2, height = 400, width=400)
-
-with col3:
-    st.write(f'### Cluster representative ({repID})')
+    entryID_pdb = read_af2_v3_(entryID)
 
     # Add structure
     xyzview3 = py3Dmol.view()
-    xyzview3.addModel(pdb_target_, format='pdb')
-    xyzview3.setStyle({'model': 0}, {'cartoon': {'color': 'grey'}})
+    xyzview3.addModel(entryID_pdb, format='pdb')
+    xyzview3.setStyle({'model': 0}, {'cartoon': {'color': 'blue'}})
 
     # Back matter
     xyzview3.setBackgroundColor('#eeeeee')
     xyzview3.zoomTo()
-    stmol.showmol(xyzview3, height = 400, width=400)
+    stmol.showmol(xyzview3, height = 400, width=800)
