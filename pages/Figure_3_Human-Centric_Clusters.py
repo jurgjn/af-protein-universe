@@ -16,7 +16,7 @@ def strip_af_cif(s):
 def uf(x):
     return '{:,}'.format(x)
 
-def RowSelectedDataFrame(df_, selected_row_index, height=400):
+def select_dataframe_row(df_, selected_row_index, height=400):
     gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_)
     gb.configure_selection(selection_mode='single', use_checkbox=True, pre_selected_rows=[ selected_row_index ])
     gb.configure_grid_options(domLayout='normal')
@@ -37,11 +37,8 @@ def RowSelectedDataFrame(df_, selected_row_index, height=400):
         enable_enterprise_modules=False,
         allow_unsafe_jscode=True,
     )
-    return gridResponse
-
-def RowSelectedDataFrameGet(gr_):
-    if not(len(gr_['selected_rows']) > 0): time.sleep(5) # Prevent annoying row-not-selected errors during loading
-    return gr_['selected_rows'][0]
+    if not(len(gridResponse['selected_rows']) > 0): time.sleep(5) # Prevent annoying row-not-selected errors during loading
+    return gridResponse['selected_rows'][0]
 
 @st.cache_resource
 def read_af2_v3_(af2_id):
@@ -84,8 +81,7 @@ else:
     st.write(f'{entryID} not found')
     repID_index_ = 0
 
-gr_clusters_ = RowSelectedDataFrame(query_clusters(), selected_row_index=repID_index_, height=200)
-repID = RowSelectedDataFrameGet(gr_clusters_)['repID']
+repID = select_dataframe_row(query_clusters(), selected_row_index=repID_index_, height=200)['repID']
 if entryID in set(query_repID(repID)['entryID']):
     st.experimental_set_query_params(repID=repID, entryID=entryID)
 else:
@@ -98,12 +94,11 @@ with col1:
     st.write(f'### Cluster {repID} members:')
     df_cluster_members_ = query_repID(repID)[['entryID', 'taxID']]
     entryID_index_ = df_cluster_members_.query('entryID == @entryID').index.values[0]
-    gr_cluster_members_ = RowSelectedDataFrame(df_cluster_members_, selected_row_index=int(entryID_index_))
-    entryID = RowSelectedDataFrameGet(gr_cluster_members_)['entryID']
+    entryID = select_dataframe_row(df_cluster_members_, selected_row_index=int(entryID_index_))['entryID']
     st.experimental_set_query_params(repID=repID, entryID=entryID)
 
 with col2:
-    st.write(f'### Structure ({entryID})')
+    st.write(f'### Structure of selected member ({entryID}):')
 
     entryID_pdb = read_af2_v3_(entryID)
 

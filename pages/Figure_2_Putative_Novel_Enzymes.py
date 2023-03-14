@@ -38,6 +38,7 @@ def select_dataframe_row(df_, selected_row_index, height=400):
         allow_unsafe_jscode=True,
     )
     if not(len(gridResponse['selected_rows']) > 0): time.sleep(5) # Prevent annoying row-not-selected errors during loading
+    if len(gridResponse['selected_rows']) == 0: return None
     return gridResponse['selected_rows'][0]
 
 @st.cache_resource
@@ -87,8 +88,11 @@ with tab1:
     df_pockets_aggrid_ = df_pockets_.drop(cols_drop_, axis=1).round(
         {'pocket_score': 1, 'pocket_mean_pLDDT': 1, 'DeepFri_max_score': 2, 'struct_resid_in_pockets': 2})
     
-    entryID = st.experimental_get_query_params().get('entryID')[0]
-    entryID_index_ = int(df_pockets_aggrid_.query('UniProtKB_ac == @entryID').index.values[0])
+    try:
+        entryID = st.experimental_get_query_params().get('entryID')[0]
+        entryID_index_ = int(df_pockets_aggrid_.query('UniProtKB_ac == @entryID').index.values[0])
+    except:
+        entryID_index_ = 0
 
     row_ = select_dataframe_row(df_pockets_aggrid_, selected_row_index=entryID_index_)
     st.write(f'{uf(len(df_pockets_aggrid_))} pockets shown')
@@ -118,7 +122,10 @@ with tab1:
 
             rs_terms_ = select_dataframe_row(df_terms_, selected_row_index=0)
             st.write(f'{af2_id_} in [UniProt](https://www.uniprot.org/uniprotkb/{af2_id_}/entry) / [AlphaFill](https://alphafill.eu/model?id={af2_id_}) / [Ensembl Bacteria](https://bacteria.ensembl.org/Multi/Search/Results?species=all;idx=;q={af2_id_};site=ensemblunit)')
-            go_ec_ = rs_terms_['GO_term/EC_number']
+            try:
+                go_ec_ = rs_terms_['GO_term/EC_number']
+            except:
+                go_ec_ = None
         
         with tab12:
             df_pockets_q_ = df_pockets_.query('UniProtKB_ac == @af2_id_')

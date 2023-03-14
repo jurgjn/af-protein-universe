@@ -25,6 +25,10 @@ from Figure 2D
 and
 [A0A1G5ASE0](/Figure_3_Human-Centric_Clusters?entryID=A0A1G5ASE0)
 from Figure 3C, left
+- [B4DKH6](/Figure_3_Human-Centric_Clusters?entryID=B4DKH6)
+and
+[A0A2D5ZNG0](/Figure_3_Human-Centric_Clusters?entryID=A0A2D5ZNG0)
+from Figure 3C, middle
 - [O14862](/Figure_3_Human-Centric_Clusters?entryID=O14862)
 and
 [A0A1C5UEQ5](/Figure_3_Human-Centric_Clusters?entryID=A0A1C5UEQ5)
