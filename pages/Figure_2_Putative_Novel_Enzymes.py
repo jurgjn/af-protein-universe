@@ -7,7 +7,7 @@ st.set_page_config(
     page_icon='🔬',
     layout='wide',
 )
-#st.cache_resource.clear()
+st.cache_resource.clear()
 
 #---
 def strip_af_cif(s):
@@ -16,25 +16,29 @@ def strip_af_cif(s):
 def uf(x):
     return '{:,}'.format(x)
 
-def RowSelectedDataFrame(df_, pre_selected_rows=[0]):
+def select_dataframe_row(df_, selected_row_index, height=400):
     gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_)
-    gb.configure_selection(selection_mode='single', pre_selected_rows=pre_selected_rows)
+    gb.configure_selection(selection_mode='single', use_checkbox=True, pre_selected_rows=[ selected_row_index ])
     gb.configure_grid_options(domLayout='normal')
+    #gb.configure_pagination()
+    #https://github.com/PablocFonseca/streamlit-aggrid/issues/57
+    gb.configure_grid_options(onFirstDataRendered=st_aggrid.JsCode("""
+    function(e) { 
+        e.api.ensureIndexVisible(%d, 'middle');
+    }
+    """ % (selected_row_index,)).js_code)
     gridOptions = gb.build()
     gridResponse = st_aggrid.AgGrid(df_,
         gridOptions=gridOptions,
-        update_mode=st_aggrid.GridUpdateMode.SELECTION_CHANGED,
+        #update_mode=st_aggrid.GridUpdateMode.SELECTION_CHANGED,
         fit_columns_on_grid_load=True,
-        #columns_auto_size_mode=st_aggrid.ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW,
-        height=400,
+        height=height,
         width='100%',
         enable_enterprise_modules=False,
+        allow_unsafe_jscode=True,
     )
-    return gridResponse
-
-def RowSelectedDataFrameGet(gr_):
-    if not(len(gr_['selected_rows']) > 0): time.sleep(5) # Prevent annoying row-not-selected errors during loading
-    return gr_['selected_rows'][0]
+    if not(len(gridResponse['selected_rows']) > 0): time.sleep(5) # Prevent annoying row-not-selected errors during loading
+    return gridResponse['selected_rows'][0]
 
 @st.cache_resource
 def read_af2_v3_(af2_id):
@@ -51,7 +55,7 @@ def read_pockets_():
 def read_deepfri_():
     return pd.read_csv('pages/Figure_2_Putative_Novel_Enzymes/pockets_score60_pLDDT90_DeepFRI_predictions.tsv', sep='\t')
 
-#@st.cache_resource
+@st.cache_resource
 def read_deepfri_summary_():
     df_ = read_deepfri_().sort_values('Score', ascending=False).groupby('Protein').head(1).rename({
         'Protein': 'struct_id',
@@ -60,36 +64,37 @@ def read_deepfri_summary_():
     }, axis=1)
     return df_[['struct_id', 'DeepFri_max_score', 'DeepFri_max_GO/EC_name']]
 
+@st.cache_resource
+def read_pockets_with_deepfri_summary_():
+    df_ = read_pockets_().merge(read_deepfri_summary_(), left_on='UniProtKB_ac', right_on='struct_id', how='left')\
+        .sort_values(['DeepFri_max_score'], ascending=False).reset_index(drop=True)
+    df_['struct_resid_in_pockets'] = df_['pocket_nresid'] / df_['struct_nresid']
+    return df_
+
 st.write('# Enzyme activity predictions for dark clusters')
 
 tab1, tab2 = st.tabs(['Browse examples', 'Global statistics'])
 
 with tab1:
     st.write('#### All structures/pockets')
-    df_pockets_ = read_pockets_().merge(read_deepfri_summary_(), left_on='UniProtKB_ac', right_on='struct_id', how='left').sort_values(['DeepFri_max_score'], ascending=False)
-    #st.dataframe(df_pockets_, height=200, use_container_width=True)
-    df_pockets_['struct_resid_in_pockets'] = df_pockets_['pocket_nresid'] / df_pockets_['struct_nresid']
-    #df_pockets_.to_csv('data/pockets_score60_pLDDT90_merge_DeepFRI.tsv', sep='\t', header=True, index=False)
+    df_pockets_ = read_pockets_with_deepfri_summary_()
+    if st.checkbox('Hide structures with a general lack of compactness (struct_resid_in_pockets > 0.4)', value=True):
+        df_pockets_ = df_pockets_.query('struct_resid_in_pockets <= 0.4').reset_index(drop=True)
 
     cols_drop_ = ['pocket_xmin', 'pocket_xmax', 'pocket_ymin', 'pocket_ymax', 'pocket_zmin', 'pocket_zmax',
-                    'pocket_cl_file', 'pocket_cl_isfile', 'struct_id',
-                    'pocket_n_points', 'pocket_energy', 'pocket_energy_per_vol', 'pocket_rgyr', 'pocket_buriedness', 'pocket_resid']
-    df_pockets_aggrid_ = df_pockets_.drop(cols_drop_, axis=1).reset_index(drop=True)
+        'pocket_cl_file', 'pocket_cl_isfile', 'struct_id',
+        'pocket_n_points', 'pocket_energy', 'pocket_energy_per_vol', 'pocket_rgyr', 'pocket_buriedness', 'pocket_resid']
+    df_pockets_aggrid_ = df_pockets_.drop(cols_drop_, axis=1).round(
+        {'pocket_score': 1, 'pocket_mean_pLDDT': 1, 'DeepFri_max_score': 2, 'struct_resid_in_pockets': 2})
+    
+    entryID = st.experimental_get_query_params().get('entryID')[0]
+    entryID_index_ = int(df_pockets_aggrid_.query('UniProtKB_ac == @entryID').index.values[0])
 
-    try:
-        UniProtKB_ac_ = st.experimental_get_query_params().get('UniProtKB_ac')[0]
-        st.write(UniProtKB_ac_)
-        st.experimental_set_query_params(UniProtKB_ac='')
-        index_ = df_pockets_aggrid_.query('UniProtKB_ac == @UniProtKB_ac_').index.values[0]
-        #st.write([int(index_)], 'noexcept!')
-    except Exception:
-        index_ = 0
-    except TypeError:
-        index_ = 0
+    row_ = select_dataframe_row(df_pockets_aggrid_, selected_row_index=entryID_index_)
+    st.write(f'{uf(len(df_pockets_aggrid_))} pockets shown')
 
-    gr_ = RowSelectedDataFrame(df_pockets_aggrid_, pre_selected_rows=[int(index_)])
-    af2_id_ = RowSelectedDataFrameGet(gr_)['UniProtKB_ac']
-    pocket_id_ = RowSelectedDataFrameGet(gr_)['pocket_id']
+    af2_id_ = row_['UniProtKB_ac']
+    pocket_id_ = row_['pocket_id']
 
     resid_ = df_pockets_.query('UniProtKB_ac == @af2_id_ & pocket_id == @pocket_id_').squeeze().pocket_resid
     cl_file_ = df_pockets_.query('UniProtKB_ac == @af2_id_ & pocket_id == @pocket_id_').squeeze().pocket_cl_file
@@ -105,29 +110,15 @@ with tab1:
         st.write(f'#### DeepFRI GO/EC terms for {af2_id_}')
         tab11, tab12 = st.tabs(['Table', 'Heatmap'])
         with tab11:
-            #st.markdown(f'**Selected structure**: {af2_id_} in [UniProt](https://www.uniprot.org/uniprotkb/{af2_id_}/entry) / [AlphaFill](https://alphafill.eu/model?id={af2_id_}) / [Ensembl Bacteria](https://bacteria.ensembl.org/Multi/Search/Results?species=all;idx=;q={af2_id_};site=ensemblunit)')
-            #st.dataframe(read_deepfri_().query('Protein == @af2_id_').sort_values('Score', ascending=False).reset_index(drop=True), height=600, use_container_width=True)
-            df_ = read_deepfri_().query('Protein == @af2_id_').sort_values('Score', ascending=False).reset_index(drop=True)
-            gb = st_aggrid.GridOptionsBuilder.from_dataframe(df_)
-            gb.configure_selection('single')
-            gb.configure_grid_options(domLayout='normal')
-            gridOptions = gb.build()
+            df_terms_ = read_deepfri_().query('Protein == @af2_id_').sort_values('Score', ascending=False).round({'Score': 2,}).reset_index(drop=True)
+            if st.checkbox('Hide non-significant terms (Score < 0.5)', value=True):
+                df_terms_ = df_terms_.query('Score >= 0.5')
+            if st.checkbox('Hide terms without saliency data', value=True):
+                df_terms_ = df_terms_.query('(DeepFRI_ont == "EC") | DeepFRI_ont == "MF"')
 
-            grid_response = st_aggrid.AgGrid(df_,
-                gridOptions=gridOptions,
-                #https://discuss.streamlit.io/t/is-there-a-way-to-autosize-all-columns-by-default-on-rendering-with-streamlit-aggrid/31841/2
-                #fit_columns_on_grid_load=True,
-                columns_auto_size_mode=st_aggrid.ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW,
-                height=300,
-                width='100%',
-                enable_enterprise_modules=False,
-            )
+            rs_terms_ = select_dataframe_row(df_terms_, selected_row_index=0)
             st.write(f'{af2_id_} in [UniProt](https://www.uniprot.org/uniprotkb/{af2_id_}/entry) / [AlphaFill](https://alphafill.eu/model?id={af2_id_}) / [Ensembl Bacteria](https://bacteria.ensembl.org/Multi/Search/Results?species=all;idx=;q={af2_id_};site=ensemblunit)')
-
-            if len(grid_response['selected_rows']) > 0:
-                go_ec_ = grid_response['selected_rows'][0]['GO_term/EC_number']
-            else:
-                go_ec_ = None
+            go_ec_ = rs_terms_['GO_term/EC_number']
         
         with tab12:
             df_pockets_q_ = df_pockets_.query('UniProtKB_ac == @af2_id_')

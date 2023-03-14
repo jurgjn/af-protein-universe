@@ -7,8 +7,9 @@ st.set_page_config(
     page_icon='🔬',
     layout='wide',
 )
-st.cache_resource.clear()
+#st.cache_resource.clear()
 
+#---
 def strip_af_cif(s):
     return s.removesuffix('-F1-model_v3.cif').removeprefix('AF-')
 
