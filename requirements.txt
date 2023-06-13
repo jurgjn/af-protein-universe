@@ -1,5 +1,5 @@
 matplotlib
-ProDy==2.2.0
+#ProDy==2.2.0
 seaborn
 stmol
 streamlit

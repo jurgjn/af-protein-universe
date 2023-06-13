@@ -1,6 +1,6 @@
 
 import ast, random, os, tempfile, time, sqlite3, urllib.request
-import matplotlib, matplotlib.colors, matplotlib.pyplot as plt, seaborn as sns, pandas as pd, streamlit as st, streamlit_ext as ste, st_aggrid, prody, py3Dmol, stmol, Bio
+import matplotlib, matplotlib.colors, matplotlib.pyplot as plt, seaborn as sns, pandas as pd, streamlit as st, streamlit_ext as ste, st_aggrid, py3Dmol, stmol
 
 st.set_page_config(
     page_title='Clustering predicted structures at the scale of the known protein universe',
