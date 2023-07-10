@@ -12,5 +12,5 @@ $ conda run -p ./streamlit-env pip install -r requirements.txt
 
 After that, run the web app locally with:
 ```
-$ conda run -p ./streamlit-env streamlit run Main.py
+$ conda run -p ./streamlit-env streamlit run app.py
 ```
