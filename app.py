@@ -1,5 +1,5 @@
 
-import ast, random, os, tempfile, time, sqlite3, urllib.request
+import ast, gzip, random, os, tempfile, time, sqlite3, urllib.request
 import matplotlib, matplotlib.colors, matplotlib.pyplot as plt, seaborn as sns, pandas as pd, streamlit as st, streamlit_ext as ste, st_aggrid, py3Dmol, stmol
 
 st.set_page_config(
@@ -8,9 +8,6 @@ st.set_page_config(
     layout='wide',
 )
 st.cache_resource.clear()
-
-def strip_af_cif(s):
-    return s.removesuffix('-F1-model_v3.cif').removeprefix('AF-')
 
 def uf(x):
     return '{:,}'.format(x)
@@ -151,6 +148,7 @@ with tab1:
             colors_pocket = {i + 1: matplotlib.colors.to_hex(cmap_(val_)) for i, val_ in saliency_.items() }
         else:
             colors_pocket = {}
+
         xyzview = py3Dmol.view()
 
         # Add structure
@@ -165,11 +163,13 @@ with tab1:
         }})
 
         # Add pocket
-        #with open(os.path.join('pages/Figure_2_Putative_Novel_Enzymes/pockets', os.path.basename(cl_file_))) as fh:
-        #    pocket_ = fh.read()
-        #xyzview.addModel(pocket_, format='pdb')
-        #xyzview.setStyle({'model': -1}, {})
-        #xyzview.addSurface(py3Dmol.VDW, {'opacity': 0.5, 'color': 'pink'}, {'model': -1})
+        with gzip.open(os.path.join('pipeline', 'results', 'af2_v3.obabel_hxr.autosite.summary.score60_pLDDT90', os.path.basename(cl_file_) + '.gz')) as fh:
+            pocket_ = fh.read().decode('ascii')
+            #st.write(pocket_)
+
+        xyzview.addModel(pocket_, format='pdb')
+        xyzview.setStyle({'model': -1}, {})
+        xyzview.addSurface(py3Dmol.VDW, {'opacity': 0.5, 'color': 'pink'}, {'model': -1})
 
         # Back matter
         xyzview.setBackgroundColor('#eeeeee')
@@ -177,11 +177,9 @@ with tab1:
         stmol.showmol(xyzview, height=600, width=600)
         st.write(cmap_)
 
-'''
 with tab2:
-
-    st.markdown(f'- {uf(len(read_pockets_()))} pockets in {uf(read_pockets_().UniProtKB_ac.nunique())} structures with pocket_score > 60')
-
+    st.markdown(f'- {uf(len(read_pockets_()))} pockets in {uf(read_pockets_().struct_id.nunique())} structures with pocket_score > 60')
+    '''
     n_deepfri_ = len(read_deepfri_())
     n_deepfri_signif_ = len(read_deepfri_().query("Score > 0.5"))
     st.markdown(f'- {uf(n_deepfri_)} DeepFRI predictions with {uf(n_deepfri_signif_)} significant at 0.5 (as used in the original paper)')
@@ -202,5 +200,4 @@ with tab2:
 
         with col_2_:
             st.dataframe(value_counts_)
-
-'''
+    '''
