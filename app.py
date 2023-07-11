@@ -7,7 +7,7 @@ st.set_page_config(
     page_icon='🔬',
     layout='wide',
 )
-st.cache_resource.clear()
+#st.cache_resource.clear()
 
 def uf(x):
     return '{:,}'.format(x)
@@ -158,8 +158,10 @@ with tab1:
                 'colorscheme': {
                     'prop': 'resi',
                     'map': colors_pocket,
+                },
+                'arrows': True,
             }
-        }})
+        })
 
         # Add pocket surface
         with gzip.open(os.path.join('pipeline', 'results', 'af2_v3.obabel_hxr.autosite.summary.score60_pLDDT90', os.path.basename(cl_file_) + '.gz')) as fh:
@@ -202,4 +204,4 @@ with tab2:
             plt.title(f'Top 10 enriched terms ({ont_})')
             plt.gca().invert_yaxis()
             st.pyplot(fig)
-            plt.savefig(f'DeepFRI_top10_{ont_}.svg', format='svg')#, bbox_inches='tight') # SVG version for manuscript: https://github.com/streamlit/streamlit/issues/796
+            #plt.savefig(f'DeepFRI_top10_{ont_}.svg', format='svg')#, bbox_inches='tight') # SVG version for manuscript: https://github.com/streamlit/streamlit/issues/796
