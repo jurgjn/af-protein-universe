@@ -1,0 +1,127 @@
+
+import collections, datetime, functools, glob, gzip, itertools, json, math, os, requests, shutil, tempfile, urllib, xml.etree.ElementTree as ET
+from pprint import pprint
+
+import numpy as np, scipy as sp, scipy.stats, pandas as pd, sklearn as sk, sklearn.preprocessing
+
+import Bio, Bio.PDB, Bio.SeqUtils, Bio.SwissProt
+
+sys.path.append(os.path.abspath("."))
+
+wildcard_constraints: # Constrain wildcards to prevent rule ambiguities: https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#wildcards
+    # Structures: always start with a UniProt id, e.g. P00533_s_3qwq_e7 (SWISS_MODEL) or P00533_model1 (RoseTTAFold)
+    struct_pref = r'\w\w\/\w\w\/\w\w',
+    struct_id = r'(\w|\-|_)+',  
+    prev_steps = r'(\w|\.)*?', # zero or more word characters or a dot, minimal match
+    #base = r'results\/(\w|\-|_|\.)+', # base directory under results/
+
+from workflow.modules import *
+
+import resources
+
+ts_ = datetime.datetime.now().strftime("%y.%m.%d_%H%M%S")
+print(f'ts_: {ts_}')
+
+include: 'rules/common.smk'
+include: 'rules/DeepFRI.smk'
+
+rule af2_v3:
+    output:
+        pdb = pfile(struct_id='{}', step='af2_v3', suffix='.pdb'),
+    shell: """
+        unzip resources/23.04.14_pdbs/pdbs.zip AF-{wildcards.struct_id}-F1-model_v3.pdb
+        mv AF-{wildcards.struct_id}-F1-model_v3.pdb {output.pdb}
+    """
+
+def pdbs_():
+    df_ = pd.read_csv('resources/23.04.14_pdbs/pdbs.txt', delim_whitespace=True, header=None).dropna()#.head(5)
+    return list(r[9].removeprefix('AF-').removesuffix('-F1-model_v3.pdb') for i,r in df_.iterrows())#[:10]
+
+rule extract_all:
+    # ./smk_local extract_all --quiet --dry-run
+    input:
+        af2 = [ pfile(struct_id=struct_id, step='af2_v3', suffix='.pdb', base='results') for struct_id in pdbs_()]
+    output:
+        tsv = 'results/af2_v3.tsv.gz',
+    params:
+        UniProtKB_ac = pdbs_(),
+    run:
+        df_ = pd.DataFrame(index=params.UniProtKB_ac)
+        df_.index.name = 'UniProtKB_ac'
+        df_[['n_resid', 'mean_pLDDT']] = [* map(get_af2_stats, input.af2) ]
+        df_['n_resid'] = df_['n_resid'].astype(int)
+        df_['rgyr'] = [* map(rgyr, input.af2) ]
+        df_.to_csv(output.tsv, sep='\t', header=True, float_format='%.2f')
+
+rule autosite_all:
+    """
+        ./smk_local extract_all autosite_all --dry-run
+        ./smk_local autosite_all --until obabel_hxr --keep-going --quiet --dry-run
+        ./smk_local autosite_all --until obabel_d --keep-going --quiet --dry-run
+        ./smk_local autosite_all --dry-run
+        ./smk_slurm autosite_all --groups autosite=GRP0 autosite_summary=GRP0 --group-components GRP0=20 --cores 1 --dry-run
+    """
+    input:
+        #tsv = [ pfile(struct_id=struct_id, step='af2_v3.obabel_hxr.autosite', suffix=f'/{struct_id}_summary.csv', base='results') for struct_id in pdbs_() ],
+        tsv = [ pfile(struct_id=struct_id, step='af2_v3.obabel_hxr.autosite.summary', suffix='.tsv', base='results') for struct_id in pdbs_() ],
+    output:
+        tsv = 'results/af2_v3.obabel_hxr.autosite.summary.tsv.gz',
+    run:
+        l_df_ = [* map(lambda fp: pd.read_csv(fp, sep='\t', dtype={'struct_id': 'str'}), input.tsv) ]
+        df_ = pd.concat(l_df_, axis=0)
+        df_.to_csv(output.tsv, index=False, sep='\t')
+
+rule autosite_subset:
+    """
+        ./smk_local autosite_subset --dry-run
+    """
+    input:
+        tsv = 'results/af2_v3.obabel_hxr.autosite.summary.tsv.gz',
+    output:
+        tsv = 'results/af2_v3.obabel_hxr.autosite.summary.score60_pLDDT90.tsv.gz',
+        dir = directory('results/af2_v3.obabel_hxr.autosite.summary.score60_pLDDT90'),
+    run:
+        df_ = pd.read_csv(input.tsv, sep='\t').query('score > 60 & mean_pLDDT > 90')
+        print(len(df_), 'raw pockets')
+        df_q_ = df_.query('score > 60 & mean_pLDDT > 90')
+        l_struct_ = df_q_['struct_id'].drop_duplicates().to_list()
+        print(len(df_q_), 'higher scoring pockets in', len(l_struct_), 'structures')
+        df_q_.to_csv(output.tsv, sep='\t')
+
+        os.makedirs(output.dir, exist_ok=True)
+        for i, r in df_q_.iterrows():
+            print(i)
+            print(r)
+            src_ = r.cl_file
+            dst_ = os.path.join(output.dir, os.path.basename(r.cl_file))
+            cmd_ = f'gzip -c {src_} > {dst_}.gz'
+            shell(cmd_)
+
+'''
+def pdbs_DeepFRI_():
+    df_ = pd.read_csv('results/af2_v3.obabel_hxr.autosite.summary.score60_pLDDT90.tsv.gz'', sep='\t')
+    return df_q_['struct_id'].drop_duplicates().to_list()
+
+rule DeepFRI_all:
+    """
+        ./smk_local DeepFRI_all --dry-run
+        ./smk_slurm DeepFRI_all --groups DeepFRI=GRP0 DeepFRI_summary=GRP0 --group-components GRP0=20 --cores 1 --dry-run
+    """
+    input:
+        tsv_predictions = [pfile(struct_id=struct_id, step='af2_v3.DeepFRI.summary', suffix=f'/{struct_id}_predictions.tsv', base='results') for struct_id in pdbs_DeepFRI_() ],
+        tsv_saliency = [pfile(struct_id=struct_id, step='af2_v3.DeepFRI.summary', suffix=f'/{struct_id}_saliency.tsv', base='results') for struct_id in pdbs_DeepFRI_() ],
+    output:
+        tsv_predictions = 'results/af2_v3.DeepFRI_terms.tsv.gz',
+        tsv_saliency = [f'results/af2_v3.DeepFRI_saliency/{struct_id}_saliency.tsv.gz' for struct_id in pdbs_DeepFRI_() ],
+    run:
+        l_df_ = [* map(lambda fp: pd.read_csv(fp, sep='\t', dtype={'struct_id': 'str'}), input.tsv_predictions) ]
+        df_ = pd.concat(l_df_, axis=0)
+        df_.to_csv(output.tsv_predictions, index=False, sep='\t')
+
+        for inp, out in zip(input.tsv_saliency, output.tsv_saliency):
+            try:
+                pd.read_csv(inp, sep='\t').to_csv(out, index=False, sep='\t')
+            except pd.errors.EmptyDataError:
+                pd.DataFrame().to_csv(out, index=False, sep='\t')
+'''
+
