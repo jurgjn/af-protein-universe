@@ -155,17 +155,15 @@ with tab1:
         xyzview.addModel(pdb_, format='pdb')
         xyzview.setStyle({'model': 0}, {
             'cartoon': {
-                #'color':'spectrum'
                 'colorscheme': {
                     'prop': 'resi',
                     'map': colors_pocket,
             }
         }})
 
-        # Add pocket
+        # Add pocket surface
         with gzip.open(os.path.join('pipeline', 'results', 'af2_v3.obabel_hxr.autosite.summary.score60_pLDDT90', os.path.basename(cl_file_) + '.gz')) as fh:
             pocket_ = fh.read().decode('ascii')
-            #st.write(pocket_)
 
         xyzview.addModel(pocket_, format='pdb')
         xyzview.setStyle({'model': -1}, {})
@@ -175,29 +173,33 @@ with tab1:
         xyzview.setBackgroundColor('#eeeeee')
         xyzview.zoomTo()
         stmol.showmol(xyzview, height=600, width=600)
-        st.write(cmap_)
+        #st.write(cmap_)
 
 with tab2:
-    st.markdown(f'- {uf(len(read_pockets_()))} pockets in {uf(read_pockets_().struct_id.nunique())} structures with pocket_score > 60')
-    '''
+    df_pockets_ = read_pockets_with_deepfri_summary_()
+    n_pockets_ = len(df_pockets_)
+    n_artefact_pockets_ = len(df_pockets_.query('struct_resid_in_pockets > .4'))
+    st.markdown(f'- {uf(len(read_pockets_()))} pockets in {uf(read_pockets_().struct_id.nunique())} structures with pocket_score > 60 and mean pLDDT > 90')
+    st.markdown(f'- {uf(n_artefact_pockets_)} of {uf(n_pockets_)} ({100*n_artefact_pockets_ / n_pockets_:.1f}%) pockets encompassing more than 40% of the structure')
+
     n_deepfri_ = len(read_deepfri_())
     n_deepfri_signif_ = len(read_deepfri_().query("Score > 0.5"))
-    st.markdown(f'- {uf(n_deepfri_)} DeepFRI predictions with {uf(n_deepfri_signif_)} significant at 0.5 (as used in the original paper)')
+    st.markdown(f'- {uf(n_deepfri_)} DeepFRI predictions with {uf(n_deepfri_signif_)} significant at 0.5')
 
     for ont_ in ['MF', 'EC', 'BP', 'CC']:
         st.markdown(f'#### Term counts for {ont_}')
 
         col_1_, col_2_ = st.columns(2)
 
-        value_counts_ = read_deepfri_().query('Score > 0.5 & DeepFRI_ont == @ont_')[['GO_term/EC_number', 'GO_term/EC_number name']].value_counts()
+        value_counts_ = read_deepfri_().query('Score > 0.5 & DeepFRI_ont == @ont_')[['GO_term/EC_number name', 'GO_term/EC_number']].value_counts()
+        value_counts_plt_ = read_deepfri_().query('Score > 0.5 & DeepFRI_ont == @ont_')['GO_term/EC_number name'].value_counts()
         with col_1_:
-            fig, ax = plt.subplots(figsize=(4, 4))
-            value_counts_.head(10).plot(kind='barh')
+            st.dataframe(value_counts_)
+
+        with col_2_:
+            fig, ax = plt.subplots(figsize=(5, 5))
+            value_counts_plt_.head(10).plot(kind='barh', color='tab:gray')
             plt.title(f'Top 10 enriched terms ({ont_})')
             plt.gca().invert_yaxis()
             st.pyplot(fig)
-            #plt.savefig(f'DeepFRI_top10_{ont_}.svg', format='svg', bbox_inches='tight') # SVG version for manuscript: https://github.com/streamlit/streamlit/issues/796
-
-        with col_2_:
-            st.dataframe(value_counts_)
-    '''
+            plt.savefig(f'DeepFRI_top10_{ont_}.svg', format='svg')#, bbox_inches='tight') # SVG version for manuscript: https://github.com/streamlit/streamlit/issues/796
