@@ -1,9 +1,9 @@
 # Clustering predicted structures at the scale of the known protein universe
 Code, intermediate results and an interactive visualisation on prediction of putative novel enzymes and small molecule binding proteins presented in ([Barrio-Hernandez et al. 2023](https://doi.org/10.1101/2023.03.09.531927)).
 
-- [Predicted pockets with score > 60 and mean pLDDT > 90](pipeline/results/af2_v3.obabel_hxr.autosite.summary.score60_pLDDT90.tsv.gzz)
+- [Predicted pockets with score > 60 and mean pLDDT > 90](pipeline/results/af2_v3.obabel_hxr.autosite.summary.score60_pLDDT90.tsv.gz)
 - [Pocket surfaces, one file per pocket](pipeline/results/af2_v3.obabel_hxr.autosite.summary.score60_pLDDT90)
-- [Predicted GO/EC terms for all structuresz](pipeline/results/af2_v3.DeepFRI_terms.tsv.gz)
+- [Predicted GO/EC terms for all structures](pipeline/results/af2_v3.DeepFRI_terms.tsv.gz)
 - [Residue-level saliency weights for MF/EC terms, one file per structure](pipeline/results/af2_v3.DeepFRI_saliency)
 
 ## Interactive visualisation
